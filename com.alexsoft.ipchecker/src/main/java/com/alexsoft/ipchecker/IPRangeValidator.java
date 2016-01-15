@@ -3,13 +3,19 @@ package com.alexsoft.ipchecker;
 import java.math.BigInteger;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
+
+import org.apache.commons.net.util.SubnetUtils;
+import org.apache.commons.net.util.SubnetUtils.SubnetInfo;
 
 import sun.net.util.IPAddressUtil;
 
 public class IPRangeValidator {
 
+    private static byte[] HIGH_32_BITS = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -1, -1, -1};
+    private static BigInteger HIGH_32_INT = new BigInteger(HIGH_32_BITS);
     //IPv6
     private static byte[] HIGH_128_BITS = {-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1};
     private static BigInteger HIGH_128_INT = new BigInteger(HIGH_128_BITS);
@@ -36,6 +42,12 @@ public class IPRangeValidator {
         return false;
     }
 
+    public static boolean checkTwoRangesOverlap(String cidrOne, String cidrTwo) throws UnknownHostException {
+        Range rangeOne = convertCIDRIPStringToRange(cidrOne);
+        Range rangeTwo = convertCIDRIPStringToRange(cidrTwo);
+        return rangeOne.isOverlapWithRange(rangeTwo);
+    }
+
     private static Range convertCIDRIPStringToRange(String cidr) throws UnknownHostException {
         int ipIdx = cidr.lastIndexOf("/");
         if (ipIdx > 1) {
@@ -44,7 +56,7 @@ public class IPRangeValidator {
             int iMask = Integer.valueOf(sMask).intValue();
             try {
                 byte[] b = InetAddress.getByName(addr).getAddress();
-                if (IPAddressUtil.isIPv6LiteralAddress(addr)) {
+                if (b.length == 8) {
                     if (iMask <= 128 && iMask >= 0) {
                         BigInteger addrBigInt = new BigInteger(b);
                         BigInteger mask = HIGH_128_INT.shiftLeft(128 - iMask);
@@ -52,22 +64,19 @@ public class IPRangeValidator {
                         BigInteger higherIp = lowerIp.add(mask.not());
                         return new RangeIPv6(lowerIp, higherIp);
                     }
-                } else {
-                    if (iMask <= 32 && iMask >= 0) {
-                        if (b.length == 4) {
-                            int addrInt = ((b[0] << 24) & 0xFF000000) 
-                                    | ((b[1] << 16) & 0xFF0000) 
-                                    | ((b[2] << 8) & 0xFF00) 
-                                    | (b[3] & 0xFF);
-                            int mask = 0;
-                            if (iMask != 0) {
-                                mask = ((2147483647) << (32 - iMask));
-                            }
-                            int lowerIp = addrInt & mask;
-                            int reversedMask = Integer.reverse(mask);
-                            int higherIp = Integer.valueOf(lowerIp | (~mask)).intValue();
-                            return new RangeIPv4(lowerIp, higherIp);
-                        }
+                } else if (b.length == 4){
+                    if (iMask < 32 && iMask >= 0) {
+                        SubnetUtils utils = new SubnetUtils(cidr);
+                        SubnetInfo info = utils.getInfo();
+                        long lowerIp = info.asInteger(info.getLowAddress()) & 0x00000000ffffffffL;
+                        long higherIp = info.asInteger(info.getHighAddress()) & 0x00000000ffffffffL;
+                        return new RangeIPv4(lowerIp, higherIp);
+                    } else {
+                        long addrInt = ((b[0] << 24) & 0x00000000FF000000L) 
+                                     | ((b[1] << 16) & 0x00000000FF0000L) 
+                                     | ((b[2] << 8) & 0x00000000FF00L) 
+                                     | (b[3] & 0x00000000FFL);
+                            return new RangeIPv4(addrInt, addrInt);
                     }
                 }
             } catch (UnknownHostException e) {
@@ -76,18 +85,15 @@ public class IPRangeValidator {
             }
         } else {
             byte[] b = InetAddress.getByName(cidr).getAddress();
-            if (IPAddressUtil.isIPv6LiteralAddress(cidr)) {
+            if (b.length == 8) {
                 BigInteger addrBigInt = new BigInteger(b);
                 return new RangeIPv6(addrBigInt, addrBigInt);
             } else {
-                if (b.length == 4) {
-                int addrInt = ((b[0] << 24) & 0xFF000000) 
-                            | ((b[1] << 16) & 0xFF0000) 
-                            | ((b[2] << 8) & 0xFF00) 
-                            | (b[3] & 0xFF);
-                        return new RangeIPv4(addrInt, addrInt);
-                   
-                }
+                long addrInt = ((b[0] << 24) & 0x00000000FF000000L) 
+                             | ((b[1] << 16) & 0x00000000FF0000L) 
+                             | ((b[2] << 8) & 0x00000000FF00L) 
+                             | (b[3] & 0x00000000FFL);
+               return new RangeIPv4(addrInt, addrInt);
             }
         }
         return null;

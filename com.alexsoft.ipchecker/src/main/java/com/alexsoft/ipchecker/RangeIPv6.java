@@ -23,7 +23,9 @@ public class RangeIPv6 implements Range {
     public boolean isOverlapWithRange(Range range) {
         RangeIPv6 rangeIPv6 = (RangeIPv6) range;
         BigInteger otherRangeStart = rangeIPv6.getStart();
-        if (otherRangeStart.compareTo(start) >= 0 && otherRangeStart.compareTo(end) <= 0) {
+        BigInteger otherRangeEnd = rangeIPv6.getEnd();
+        if ((otherRangeStart.compareTo(start) >= 0 && otherRangeStart.compareTo(end) <= 0)
+          ||(start.compareTo(otherRangeStart) >= 0 && start.compareTo(otherRangeEnd) <= 0)) {
             return true;
         }
         return false;

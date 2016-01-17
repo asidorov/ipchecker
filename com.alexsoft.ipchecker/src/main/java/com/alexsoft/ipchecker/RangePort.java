@@ -1,28 +1,28 @@
 package com.alexsoft.ipchecker;
 
 
-public class RangeIPv4 implements Range {
+public class RangePort implements Range {
 
-    private final long start;
-    private final long end;
+    private final int start;
+    private final int end;
 
-    public RangeIPv4(long start, long end) {
+    public RangePort(int start, int end) {
         this.start = start;
         this.end = end;
     }
 
-    public long getStart() {
+    public int getStart() {
         return start;
     }
 
-    public long getEnd() {
+    public int getEnd() {
         return end;
     }
 
     public boolean isOverlapWithRange(Range range) {
-        RangeIPv4 rangeIPv4 = (RangeIPv4) range;
-        long otherRangeStart = rangeIPv4.getStart();
-        long otherRangeEnd = rangeIPv4.getEnd();
+        RangePort rangePort = (RangePort) range;
+        int otherRangeStart = rangePort.getStart();
+        int otherRangeEnd = rangePort.getEnd();
         if ((otherRangeStart >= start && otherRangeStart <= end)
           ||(start >= otherRangeStart && start <= otherRangeEnd)) {
             return true;
